@@ -244,13 +244,24 @@ remove_old_backups() {
 save_all() {
     local resurrect_file_path="$(resurrect_file_path)"
     local last_resurrect_file="$(last_resurrect_file)"
+
+    # If using a custom name, write to a .tmp file first so we don't
+    # blank out an existing file during the write process.
+    local write_target="$resurrect_file_path"
+    if [ -n "$CUSTOM_RESURRECT_NAME" ]; then
+        write_target="${resurrect_file_path}.tmp"
+    fi
+
     mkdir -p "$(resurrect_dir)"
-    fetch_and_dump_grouped_sessions > "$resurrect_file_path"
-    dump_panes   >> "$resurrect_file_path"
-    dump_windows >> "$resurrect_file_path"
-    dump_state   >> "$resurrect_file_path"
-    execute_hook "post-save-layout" "$resurrect_file_path"
-    if files_differ "$resurrect_file_path" "$last_resurrect_file"; then
+    fetch_and_dump_grouped_sessions > "$write_target"
+    dump_panes   >> "$write_target"
+    dump_windows >> "$write_target"
+    dump_state   >> "$write_target"
+    execute_hook "post-save-layout" "$write_target"
+    if [ -n "$CUSTOM_RESURRECT_NAME" ]; then
+        mv -f "$write_target" "$resurrect_file_path"
+        ln -fs "$(basename "$resurrect_file_path")" "$last_resurrect_file"
+    elif files_differ "$resurrect_file_path" "$last_resurrect_file"; then
         ln -fs "$(basename "$resurrect_file_path")" "$last_resurrect_file"
     else
         rm "$resurrect_file_path"
